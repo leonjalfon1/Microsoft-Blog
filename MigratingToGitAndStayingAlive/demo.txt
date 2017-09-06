@@ -1,0 +1,134 @@
+--> MIGRATION (STEP BY STEP)
+
+--------------------------------------------------------
+BEFORE START
+--------------------------------------------------------
+
+Create working directory:
+-> mkdir C:\Users\leonj\Desktop\ug-demo
+
+Move to the new folder:
+-> cd C:\Users\leonj\Desktop\ug-demo
+
+
+--------------------------------------------------------
+REPOSITORY "petshop-scripts"
+--------------------------------------------------------
+
+Migrate the last version of the Main Branch using the command:
+--> git tfs quick-clone https://leonj.visualstudio.com/DefaultCollection $/Migration-Demo/Scripts/Scripts-Main petshop-scripts
+
+
+Move to migrated repository folder
+--> cd C:\Users\leonj\Desktop\ug-demo\petshop-scripts
+
+
+Clean git-tfs metadata
+--> git filter-branch -f --msg-filter "sed 's/^git-tfs-id:.*$//g'" -- --all
+
+
+Remove the ".exe" files from the repository history
+--> java -jar "C:\Users\leonj\Downloads\lfs-conv\bfg-1.12.15.jar" --delete-files "*.{exe}" --no-blob-protection "C:\Users\leonj\Desktop\ug-demo\petshop-scripts"
+
+
+Clean the repository from tfs-git objects
+--> git tfs cleanup
+
+
+Clean the repository from unreferenced objects
+--> git reflog expire --expire=now --all && git gc --prune=now --aggressive
+
+
+Push to remote
+--> git push --all https://leonj.visualstudio.com/DefaultCollection/Migration-Demo/_git/petshop-scripts
+
+
+--------------------------------------------------------
+REPOSITORY "petshop-app"
+--------------------------------------------------------
+
+Move to the working folder:
+-> cd C:\Users\leonj\Desktop\ug-demo
+
+
+Migrate the Client Main branch and its childs (with wi link) using:
+--> git tfs clone https://leonj.visualstudio.com/DefaultCollection $/Migration-Demo/Client/Client-Main --branches=all --export petshop-client
+
+
+Migrate the Server Main branch and its childs (with wi link) using:
+--> git tfs clone https://leonj.visualstudio.com/DefaultCollection $/Migration-Demo/Server/Server-Main --branches=all --export petshop-server
+
+
+Create the final repository using:
+--> mkdir petshop-app && cd petshop-app && git init
+
+
+Create .gitignore file
+--> echo # gitignore content > .gitignore && git add .gitignore && git commit -m "Add .gitignore file"
+
+
+Add the migrated repositories as remotes:
+--> git remote add client C:\Users\leonj\Desktop\ug-demo\petshop-Client
+--> git remote add server C:\Users\leonj\Desktop\ug-demo\petshop-server
+
+
+fetch all migrated branches:
+--> git fetch --all
+
+
+Create local branches to track remote ones
+git branch migrated/client/1.0 --track client/client/client-1.0
+git branch migrated/client/2.0 --track client/client/client-2.0
+git branch migrated/client/3.0 --track client/client/client-3.0
+git branch migrated/client/main --track client/master
+git branch migrated/server/1.0 --track server/server/server-1.0
+git branch migrated/server/2.0 --track server/server/server-2.0
+git branch migrated/server/3.0 --track server/server/server-3.0
+git branch migrated/server/main --track server/master
+
+
+Merge client and server main branches to the master branch:
+--> git merge --allow-unrelated-histories migrated/client/main
+--> git merge --allow-unrelated-histories migrated/server/main
+
+
+Remove remotes
+--> git remote rm client
+--> git remote rm server
+
+
+Update git-tfs metadata to human format
+--> git filter-branch -f --msg-filter "sed 's/^git-tfs-id:.*;C\([0-9]*\)$/Changeset:\1/g'" -- --all
+
+
+Clean the repository from tfs-git objects
+--> git tfs cleanup
+
+
+Clean the repository from unreferenced objects
+--> git reflog expire --expire=now --all && git gc --prune=now --aggressive
+
+
+Create a mirror clone (to start conversion to LFS)
+--> cd ..
+--> git clone --mirror "C:\Users\leonj\Desktop\ug-demo\petshop-app" "C:\Users\leonj\Desktop\ug-demo\petshop-app-source.git"
+
+
+Convert to LFS
+java -jar "C:\Users\leonj\Downloads\git-lfs-migrate\git-lfs-migrate.jar" -s "C:\Users\leonj\Desktop\ug-demo\petshop-app-source.git" -d "C:\Users\leonj\Desktop\ug-demo\petshop-app-converted.git" "*.gif" "*.jpg"
+
+
+Check that was successfully converted
+--> cd "C:\Users\leonj\Desktop\ug-demo\petshop-app-converted.git"
+--> git fsck
+
+
+Push repository to remote
+--> git push --mirror https://leonj.visualstudio.com/DefaultCollection/Migration-Demo/_git/petshop-app
+--> git lfs push --all https://leonj.visualstudio.com/DefaultCollection/Migration-Demo/_git/petshop-app
+
+
+--------------------------------------------------------
+
+
+
